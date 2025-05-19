@@ -1,11 +1,13 @@
 import express from "express";
 import loger from "./loger.js";
 import mongoose from "mongoose";
+import userRouter from "./controler/UserControler.js";
+import cors from "cors"
 
 const { MONGO_DB_URI } = process.env;
 
 //=== CONNECT TO MONGO ===
-mongoose.connect = mongoose.connect(MONGO_DB_URI);
+mongoose.connect(MONGO_DB_URI);
 
 // === MONGOOSE CONNECTION ===
 mongoose.connection
@@ -14,13 +16,19 @@ mongoose.connection
 .on("error", (error) => loger.error("DATABASE STATE", error));
 
 
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
 app.get("/", (req, res) => {
     res.send("this is the test route to make sure server is working")
 })
 
-const app = express();
-app.use(cors);
-app.use(express.json());
+
+
+app.use("/user", userRouter)
 
 const PORT = process.env.PORT || 3000;
 
