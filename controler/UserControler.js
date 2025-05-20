@@ -1,69 +1,85 @@
 import User from "../model/UserSheme.js";
-import crypto from "node:crypto";
-import jwt from "jsonwebtoken";
+import crypto, { pbkdf2 } from "node:crypto";
 import loger from "../loger.js";
 import { Router } from "express";
-import dotenv from "dotenv"
-dotenv.config()
+import dotenv from "dotenv";
+import { promisify } from "util";
+dotenv.config();
 
-const secret = process.env.SECRET
-
+const secret = process.env.SECRET;
+const pbkdf2Async = promisify(pbkdf2);
 const router = Router(); // create router to create route bundle
 
-
-
 // Signup route to create a new user
-router.post("/signup", (req, res) => {
-  loger.info(`This is request body: ${req.body}`);
-  const { firstName, lastName, nickName, password} = req.body;
-  const salt = crypto.randomBytes(128).toString("base64");
+router.post("/signup", async (req, res) => {
+  try {
+    const { username, firstName, lastName, nickName, password } = req.body;
 
-  // cyphr user's password
-  crypto.pbkdf2(password, salt, 100000, 64, "sha512", (err, derivedKey) => {
-    // if some hashing mistakes
-    if (err) return res.status(500).json({ err: "Hashing failed" });
+    // check if user exist
+    const existingUser = await User.findOne({ username });
+    if (existingUser) {
+      return res.status(400).json({ error: "User already exists" });
+    }
 
+    // 2. salt
+    const salt = crypto.randomBytes(128).toString("base64");
+
+    // 3. password hashing
+    const derivedKey = await pbkdf2Async(password, salt, 100000, 64, "sha512");
     const passwordHash = derivedKey.toString("hex");
-    // create user with hashed password
-    User.create({ firstName, lastName, nickName,  passwordHash, salt })
-      .then((user) => res.status(201).json({ message: "User created", user }))
-      .catch((error) => res.status(400).json({ error: error.message }));
-  });
+
+    // 4. user created
+    const user = await User.create({
+      username,
+      firstName,
+      lastName,
+      nickName,
+      passwordHash,
+      salt,
+    });
+
+    // 5. Відповідь
+    res.status(201).json({ message: "User created", user });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 router.post("/login", async (req, res) => {
   try {
-    // check if the user exists
-    const user = await User.findOne({ username: req.body.username });
-    if (user) {
-      //check if password matches
-      const { passwordHash, salt } = user;
-      const password = req.body.password;
-      // hashing new users input
-      crypto.pbkdf2(password, salt, 100000, 64, "sha512", async (err, derivedKey) => {
-        if (err) return res.status(500).json({ error: "Hashing error" });
+     // 1. User search
+    const { nickName, password } = req.body;
+    const user = await User.findOne({ nickName });
+    if (!user) return res.status(400).json({ error: "credential error" });
 
-        // hasing new user's input password
-        const incomingHash = derivedKey.toString("hex");
-        const payload = { username: user.username };
-        const options = { expiresIn: "1h" };
+    
+    const payload = { nickName: user.nickName };
+    const secret = process.env.SECRET;
+    const options = { expiresIn: "1h" };
 
-        if (passwordHash === incomingHash) {
-           jwt.sign(payload, secret, options, (err, token) => {
-            if (err) {
-                loger.info("JWT generation error:", err)
-            } else {
-                res.json({ token });
-            }
-            });
-        } else res.status(400).json({ error: "credential error" });
-      });
+    // 2. Password hashing
+    const derivedKey = await pbkdf2Async(
+      password,
+      user.salt,
+      100000,
+      64,
+      "sha512"
+    );
+    const incomingHash = derivedKey.toString("hex");
+
+    // 3. Checking hash
+    if (incomingHash !== user.passwordHash) {
+      return res.status(400).json({ error: "credential error" });
     } else {
-      res.status(400).json({ error: "credential error" });
+       res.status(200).json({ message: "Login successful"});
     }
-  } catch (error) {
-    res.status(400).json({ error });
-  }
+
+    } catch (error) {
+      loger.error("[Signup error]:", error); // or [Signin error]
+      res
+        .status(500)
+        .json({ error: "Internal server error", details: error.message });
+    }
 });
 
-export default router
+export default router;
