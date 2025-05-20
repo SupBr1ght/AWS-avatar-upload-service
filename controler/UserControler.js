@@ -15,7 +15,7 @@ const router = Router(); // create router to create route bundle
 // Signup route to create a new user
 router.post("/signup", (req, res) => {
   loger.info(`This is request body: ${req.body}`);
-  const { username, password } = req.body;
+  const { firstName, lastName, nickName, password} = req.body;
   const salt = crypto.randomBytes(128).toString("base64");
 
   // cyphr user's password
@@ -25,7 +25,7 @@ router.post("/signup", (req, res) => {
 
     const passwordHash = derivedKey.toString("hex");
     // create user with hashed password
-    User.create({ username, passwordHash, salt })
+    User.create({ firstName, lastName, nickName,  passwordHash, salt })
       .then((user) => res.status(201).json({ message: "User created", user }))
       .catch((error) => res.status(400).json({ error: error.message }));
   });
