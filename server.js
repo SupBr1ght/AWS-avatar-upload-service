@@ -7,6 +7,7 @@ import cors from "cors"
 const { MONGO_DB_URI } = process.env;
 
 //=== CONNECT TO MONGO ===
+mongoose.set('autoIndex', true);
 mongoose.connect(MONGO_DB_URI);
 
 // === MONGOOSE CONNECTION ===
