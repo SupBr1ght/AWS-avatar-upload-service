@@ -8,25 +8,26 @@ dotenv.config();
 const router = Router(); // create routers to create route bundle
 
 //=== REGISTRATION ===
-router.post('/register', async (req, res) => {
+router.post("/register", async (req, res) => {
   try {
     const { nickname, firstname, lastname, password } = req.body;
 
     const existingUser = await User.findOne({ nickname });
-    if (existingUser) return res.status(400).json({ error: 'Nickname already exists' });
+    if (existingUser)
+      return res.status(400).json({ error: "Nickname already exists" });
 
     //create user instance
     const user = new User({ nickname, firstname, lastname });
     //hashed user's password
     await user.setPassword(password);
     await user.save();
-    res.status(201).json({ message: 'User registered' });
+    res.status(201).json({ message: "User registered" });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.put('/update', basicAuth, async (req, res) => {
+router.put("/update", basicAuth, async (req, res) => {
   try {
     const user = req.user;
     const { firstname, lastname, newPassword, nickname } = req.body;
@@ -36,7 +37,7 @@ router.put('/update', basicAuth, async (req, res) => {
       const existing = await User.findOne({ nickname });
       //if nickname is aleady in use and it's not the same nickname that has user throw error
       if (existing && existing._id.toString() !== user._id.toString()) {
-        return res.status(400).json({ error: 'Nickname already in use' });
+        return res.status(400).json({ error: "Nickname already in use" });
       }
       // update if user update nickname
       user.nickname = nickname;
@@ -52,14 +53,30 @@ router.put('/update', basicAuth, async (req, res) => {
     await user.save();
 
     res.json({
-      message: 'User updated successfully',
+      message: "User updated successfully",
       user: {
         nickname: user.nickname,
         firstname: user.firstname,
-        lastname: user.lastname
-      }
+        lastname: user.lastname,
+      },
     });
   } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.get("/users", async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+
+    if(limit <= 0 || limit > 100 ){
+      res.status(400).json({error: "Limit must be between 1 and 100"})
+    }
+    //get data about users without salt and password
+    const users = await User.find({}, " -password -salt");
+    //return all user's and their's length
+    res.json({users, count: users.length })
+  } catch (error) {
     res.status(400).json({ error: err.message });
   }
 });
