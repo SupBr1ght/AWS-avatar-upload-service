@@ -13,6 +13,22 @@ const userSchema = new Schema({
     nickname: {type: String, unique: true, required: true},
     password: {type: String},
     salt: {type: String},
+    isDeleted: {
+    type: Boolean,
+    default: false
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  },
+  createdAt: {
+    type: Boolean,
+    default: false
+  },
+  deletedAt: {
+    type: Date,
+    default: null
+  }
 })
 
 userSchema.methods.setPassword = async function(password) {
