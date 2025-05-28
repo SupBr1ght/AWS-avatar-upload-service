@@ -43,6 +43,23 @@ router.put("/update", basicAuth, async (req, res) => {
   try {
     const user = req.user;
     const { firstname, lastname, newPassword, nickname } = req.body;
+    const ifUnmodifiedSince = req.headers['if-unmodified-since'];
+
+    //If headers not modified then modify it if it was then return exeption
+     if (ifUnmodifiedSince) {
+      const clientLastModified = new Date(ifUnmodifiedSince);
+      const serverLastModified = new Date(user.updatedAt);
+
+      if (clientLastModified < serverLastModified) {
+        return res.status(412).json({ 
+          error: "Resource was modified. Please fetch the latest version first.",
+          details: {
+            clientVersion: clientLastModified.toUTCString(),
+            serverVersion: serverLastModified.toUTCString()
+          }
+        });
+      }
+    }
 
     // check if we update nickname it's different from the old one
     if (nickname && nickname !== user.nickname) {
@@ -58,13 +75,14 @@ router.put("/update", basicAuth, async (req, res) => {
 
     if (firstname) user.firstname = firstname;
     if (lastname) user.lastname = lastname;
-
     if (newPassword) {
       await user.setPassword(newPassword);
     }
+    user.updatedAt = kyTime.toISO()
 
     await user.save();
-    res.set('Last-Modified', new Date(user.updated_at).toUTCString());
+
+    res.set('Last-Modified', user.updatedAt);
     res.json({
       message: "User updated successfully",
       user: {
