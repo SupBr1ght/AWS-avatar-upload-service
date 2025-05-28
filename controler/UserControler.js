@@ -64,7 +64,7 @@ router.put("/update", basicAuth, async (req, res) => {
     }
 
     await user.save();
-
+    res.set('Last-Modified', new Date(user.updated_at).toUTCString());
     res.json({
       message: "User updated successfully",
       user: {
