@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { pbkdf2, randomBytes, pbkdf2Sync, timingSafeEqual } from "crypto";
+import { pbkdf2, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from 'util';
 
 
@@ -13,23 +13,14 @@ const userSchema = new Schema({
     nickname: {type: String, unique: true, required: true},
     password: {type: String},
     salt: {type: String},
-    isDeleted: {
-    type: Boolean,
-    default: false
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
-  },
-  createdAt: {
-    type: Boolean,
-    default: false
-  },
-  deletedAt: {
-    type: Date,
-    default: null
-  }
+    deletedAt: {type: String},
+    isDeleted: {type: Boolean},
+    createdAt: {type:String},
+    updatedAt: {type: String},
+    timezone: {type: String},
+    timezoneOffset: {type: Number}
 })
+
 
 userSchema.methods.setPassword = async function(password) {
   const salt = randomBytes(16).toString('hex');

@@ -2,10 +2,13 @@ import User from "../model/UserSheme.js";
 import { Router } from "express";
 import dotenv from "dotenv";
 import { basicAuth } from "../basicAuth.js";
+import loger from "../loger.js";
+import { DateTime } from "luxon";
 
 dotenv.config();
 
 const router = Router(); // create routers to create route bundle
+const kyTime = DateTime.now().setZone("Europe/Kyiv");
 
 //=== REGISTRATION ===
 router.post("/register", async (req, res) => {
@@ -17,7 +20,16 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ error: "Nickname already exists" });
 
     //create user instance
-    const user = new User({ nickname, firstname, lastname });
+    const user = new User({
+      nickname,
+      firstname,
+      lastname,
+      createdAt: kyTime.toISO(),
+      updatedAt: "Was not updated",
+      deletedAt: "Was not deleted",
+      timezone: kyTime.zoneName,
+      timezoneOffset: kyTime.offset,
+    });
     //hashed user's password
     await user.setPassword(password);
     await user.save();
@@ -41,6 +53,7 @@ router.put("/update", basicAuth, async (req, res) => {
       }
       // update if user update nickname
       user.nickname = nickname;
+      user.updatedAt = kyTime.toISO()
     }
 
     if (firstname) user.firstname = firstname;
@@ -55,9 +68,7 @@ router.put("/update", basicAuth, async (req, res) => {
     res.json({
       message: "User updated successfully",
       user: {
-        nickname: user.nickname,
-        firstname: user.firstname,
-        lastname: user.lastname,
+        nickname: user.nickname
       },
     });
   } catch (err) {
@@ -69,15 +80,38 @@ router.get("/users", async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
 
-    if(limit <= 0 || limit > 100 ){
-      res.status(400).json({error: "Limit must be between 1 and 100"})
+    if (limit <= 0 || limit > 100) {
+      res.status(400).json({ error: "Limit must be between 1 and 100" });
     }
     //get data about users without salt and password
-    const users = await User.find({}, " -password -salt");
+    const users = await User.find({}, " -password -salt -deletedAt");
     //return all user's and their's length
-    res.json({users, count: users.length })
+    res.json({ users, count: users.length });
   } catch (error) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+router.delete("/delete", async (req, res) => {
+  const { nickname } = req.body;
+  try {
+    const existingUser = await User.findOne({ nickname });
+    if (existingUser) {
+      const deletedUser = await User.findOneAndUpdate(
+        { nickname: nickname },
+        {
+          $set: {
+            isDeleted: true,
+            deletedAt: kyTime.toISO(),
+            timezone: kyTime.zoneName,
+            timezoneOffset: kyTime.offset, // Store the offset in minutes } }
+          },
+        }
+      );
+      res.json({ message: "user deleted succsessfuly" });
+    }
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
 });
 
