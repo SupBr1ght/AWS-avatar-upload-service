@@ -2,7 +2,6 @@ import User from "../model/UserSheme.js";
 import { Router } from "express";
 import dotenv from "dotenv";
 import { basicAuth } from "../basicAuth.js";
-import loger from "../loger.js";
 import { DateTime } from "luxon";
 
 dotenv.config();
@@ -43,20 +42,21 @@ router.put("/update", basicAuth, async (req, res) => {
   try {
     const user = req.user;
     const { firstname, lastname, newPassword, nickname } = req.body;
-    const ifUnmodifiedSince = req.headers['if-unmodified-since'];
+    const ifUnmodifiedSince = req.headers["if-unmodified-since"];
 
     //If headers not modified then modify it if it was then return exeption
-     if (ifUnmodifiedSince) {
+    if (ifUnmodifiedSince) {
       const clientLastModified = new Date(ifUnmodifiedSince);
       const serverLastModified = new Date(user.updatedAt);
 
       if (clientLastModified < serverLastModified) {
-        return res.status(412).json({ 
-          error: "Resource was modified. Please fetch the latest version first.",
+        return res.status(412).json({
+          error:
+            "Resource was modified. Please fetch the latest version first.",
           details: {
             clientVersion: clientLastModified.toUTCString(),
-            serverVersion: serverLastModified.toUTCString()
-          }
+            serverVersion: serverLastModified.toUTCString(),
+          },
         });
       }
     }
@@ -70,7 +70,7 @@ router.put("/update", basicAuth, async (req, res) => {
       }
       // update if user update nickname
       user.nickname = nickname;
-      user.updatedAt = kyTime.toISO()
+      user.updatedAt = kyTime.toISO();
     }
 
     if (firstname) user.firstname = firstname;
@@ -78,15 +78,15 @@ router.put("/update", basicAuth, async (req, res) => {
     if (newPassword) {
       await user.setPassword(newPassword);
     }
-    user.updatedAt = kyTime.toISO()
+    user.updatedAt = kyTime.toISO();
 
     await user.save();
 
-    res.set('Last-Modified', user.updatedAt);
+    res.set("Last-Modified", user.updatedAt);
     res.json({
       message: "User updated successfully",
       user: {
-        nickname: user.nickname
+        nickname: user.nickname,
       },
     });
   } catch (err) {
@@ -110,10 +110,27 @@ router.get("/users", async (req, res) => {
   }
 });
 
+router.get("/user", async (req, res) => {
+  try {
+    const { nickname } = req.query;
+    const user = await User.findOne({ nickname });
+    if (user) {
+      res.set("Last-Modified", user.updatedAt);
+      res.status(200).json({ user });
+    }
+  } catch {
+    res.status(404).json({ message: "User was not found" });
+  }
+});
+
 router.delete("/delete", async (req, res) => {
   const { nickname } = req.body;
   try {
-    const existingUser = await User.findOne({ nickname });
+    const existingUser = await User.findOne({ nickname })
+      .select(
+        "-password -salt -deletedAt -createdAt -updatedAt -isDeleted -__v"
+      )
+      .lean();
     if (existingUser) {
       const deletedUser = await User.findOneAndUpdate(
         { nickname: nickname },
