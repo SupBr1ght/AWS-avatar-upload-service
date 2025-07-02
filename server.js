@@ -7,6 +7,7 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import dotenv from "dotenv"
 dotenv.config()
+import pollSQS from "./SQSWorker.js";
 
 // ===INSTANTIATE S3CLIENT AND BUCKET
 const s3 = new S3Client({ region: process.env.AWS_REGION });
@@ -35,9 +36,9 @@ app.get("/", (req, res) => {
 })
 
 // Endpoint to generate presigned URL
-app.post('/presigned-url', async (req, res) => {
-    const { key } = req.query;
-    const bucket = process.env.S3_BUCKET_NAME
+app.post('/avatar-upload-url', async (req, res) => {
+    const { key } = req.body;
+    const bucket = process.env.S3_BUCKET_NAME;
 
     if (!key) {
         return res.status(400).json({ error: 'Key is required' });
@@ -45,25 +46,23 @@ app.post('/presigned-url', async (req, res) => {
 
     const params = {
         Bucket: bucket, 
-        Key: key,                   
+        Key: `avatars/${key}`,
+        ContentType: "image/jpeg"                 
     };
 
     try {
         const command = new PutObjectCommand(params);
+        const url = await getSignedUrl(s3, command, { expiresIn: 3600 });
 
-        // Генеруємо presigned URL
-        const url = await getSignedUrl(s3, command, { expiresIn: 3600 }); 
-
-        // Відправляємо URL клієнту
+        console.log("Presigned URL generated:", url);
         res.json({ url });
     } catch (err) {
         console.error('Error generating presigned URL:', err);
-        return res.status(500).json({ error: 'Error generating presigned URL' });
+        res.status(500).json({ error: 'Error generating presigned URL' });
     }
 });
 
-
-
+pollSQS();
 
 
 app.use("/user", userRouter)
