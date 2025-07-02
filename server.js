@@ -10,7 +10,6 @@ dotenv.config()
 
 // ===INSTANTIATE S3CLIENT AND BUCKET
 const s3 = new S3Client({ region: process.env.AWS_REGION });
-const bucket = process.env.S3_BUCKET_NAME
 
 // const { MONGO_DB_URI } = process.env;
 
@@ -45,7 +44,7 @@ app.post('/presigned-url', async (req, res) => {
     }
 
     const params = {
-        Bucket: 'your-bucket-name', 
+        Bucket: bucket, 
         Key: key,                   
     };
 
@@ -74,3 +73,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     loger.info(`Server is running on port ${PORT}`);
 });
+
