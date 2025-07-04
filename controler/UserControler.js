@@ -3,6 +3,9 @@ import { Router } from "express";
 import dotenv from "dotenv";
 import { basicAuth } from "../basicAuth.js";
 import { DateTime } from "luxon";
+import pollSQS from "/home/sap/projects/user-management-1/SQSWorker.js";
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 dotenv.config();
 
@@ -149,5 +152,45 @@ router.delete("/delete", async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 });
+
+// ===INSTANTIATE S3CLIENT AND BUCKET
+const s3 = new S3Client({ region: process.env.AWS_REGION });
+
+// Endpoint to generate presigned URL
+router.post('/avatar-upload-url', async (req, res) => {
+    const { key, userId } = req.body;
+    const bucket = process.env.S3_BUCKET_NAME;
+
+    if (!key) {
+        return res.status(400).json({ error: 'Key is required' });
+    }
+
+    const params = {
+        Bucket: bucket, 
+        Key: `avatars/${key}`,
+        ContentType: "image/jpeg"                 
+    };
+
+    try {
+        const command = new PutObjectCommand(params);
+        const url = await getSignedUrl(s3, command, { expiresIn: 3600 });
+
+        //update user in bd
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        user.avatarKey = key;
+        await user.save();
+
+        res.json({ url });
+
+    } catch (err) {
+        loger.error('Error generating presigned URL:', err);
+        res.status(500).json({ error: 'Error generating presigned URL' });
+    }
+});
+
+pollSQS();
+
 
 export default router;
